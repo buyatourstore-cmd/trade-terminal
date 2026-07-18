@@ -807,6 +807,13 @@ document.getElementById('tabs').addEventListener('click', e=>{
 /* ============================================================
    INIT + LOOPS
    ============================================================ */
+let tickInProgress = false;
+async function safeTickAll(){
+  if(tickInProgress) return; // previous fetch (e.g. Render waking up) still running
+  tickInProgress = true;
+  try{ await tickAll(); }
+  finally{ tickInProgress = false; }
+}
 async function tickAll(){
   if(BACKEND_LIVE){
     const live = await fetchBackendIndices();
@@ -832,7 +839,7 @@ function applyLiveIndex(obj, liveData){
 }
 (async function init(){
   await checkBackend();
-  renderIndices();
+  await tickAll();          // attempt a real fetch immediately, not just seed data
   await renderBreadthAndMovers();
   renderTicker();
   renderWatchlistTags();
@@ -840,7 +847,7 @@ function applyLiveIndex(obj, liveData){
   renderJournal();
   renderChecklist();
 
-  setInterval(tickAll, 2500);
+  setInterval(safeTickAll, 2500);
   setInterval(renderBreadthAndMovers, 15000);
   setInterval(renderTicker, 20000);
   setInterval(runScan, 60000);
