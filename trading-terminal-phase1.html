@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 1 — Trade Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14;
+    --panel:#121620;
+    --panel-2:#171C28;
+    --line:#232937;
+    --text:#E6E9F0;
+    --text-dim:#8B93A7;
+    --text-faint:#565E70;
+    --buy:#18C98F;
+    --buy-dim:#0E7A57;
+    --sell:#EA3943;
+    --sell-dim:#8C2229;
+    --neutral:#5B6270;
+    --amber:#F0A202;
+    --amber-dim:#8A5E02;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:'IBM Plex Sans',sans-serif; -webkit-font-smoothing:antialiased;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+  a{color:inherit;}
+
+  /* ---------- Ticker ---------- */
+  .ticker-wrap{
+    background:#0E1119; border-bottom:1px solid var(--line);
+    overflow:hidden; white-space:nowrap; position:relative; height:34px;
+  }
+  .ticker-wrap::before,.ticker-wrap::after{
+    content:""; position:absolute; top:0; bottom:0; width:40px; z-index:2;
+  }
+  .ticker-wrap::before{left:0; background:linear-gradient(90deg,#0E1119,transparent);}
+  .ticker-wrap::after{right:0; background:linear-gradient(270deg,#0E1119,transparent);}
+  .ticker-track{
+    display:inline-flex; align-items:center; height:34px;
+    animation:scroll-left 28s linear infinite;
+  }
+  .ticker-item{
+    display:inline-flex; gap:8px; align-items:center;
+    padding:0 22px; font-size:12.5px; font-weight:500; letter-spacing:.2px;
+    border-right:1px solid var(--line);
+  }
+  .ticker-item .lbl{color:var(--text-dim);}
+  @keyframes scroll-left{
+    0%{transform:translateX(0);}
+    100%{transform:translateX(-50%);}
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    padding:18px 24px 0 24px; display:flex; justify-content:space-between; align-items:flex-end;
+    flex-wrap:wrap; gap:12px;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--buy); box-shadow:0 0 8px var(--buy); animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .brand h1{font-size:17px; margin:0; letter-spacing:.3px; font-weight:600;}
+  .brand small{display:block; color:var(--text-faint); font-size:11px; margin-top:1px; font-weight:400;}
+
+  nav.tabs{display:flex; gap:2px; background:var(--panel); border:1px solid var(--line); border-radius:9px; padding:3px;}
+  nav.tabs button{
+    background:transparent; border:none; color:var(--text-dim); font-family:inherit;
+    padding:8px 14px; border-radius:7px; font-size:12.5px; font-weight:500; cursor:pointer;
+    transition:.15s;
+  }
+  nav.tabs button.active{background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line);}
+  nav.tabs button:hover{color:var(--text);}
+
+  main{padding:20px 24px 60px 24px; max-width:1320px; margin:0 auto;}
+  .view{display:none;}
+  .view.active{display:block; animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+  .grid{display:grid; gap:14px;}
+  .grid-4{grid-template-columns:repeat(4,1fr);}
+  .grid-3{grid-template-columns:2fr 1fr 1fr;}
+  .grid-2{grid-template-columns:1.3fr 1fr;}
+  @media(max-width:980px){.grid-4{grid-template-columns:repeat(2,1fr);} .grid-3,.grid-2{grid-template-columns:1fr;}}
+
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px 18px;
+  }
+  .card h3{margin:0 0 12px 0; font-size:11.5px; text-transform:uppercase; letter-spacing:.8px;
+    color:var(--text-faint); font-weight:600;}
+
+  /* Index cards */
+  .idx-card .price{font-size:26px; font-weight:600; font-family:'IBM Plex Mono',monospace;}
+  .idx-card .chg{font-size:13px; font-weight:600; margin-top:4px;}
+  .up{color:var(--buy);} .down{color:var(--sell);} .flat{color:var(--neutral);}
+  .idx-card svg{margin-top:10px; display:block;}
+
+  /* Breadth bar */
+  .breadth-bar{height:22px; border-radius:6px; overflow:hidden; display:flex; border:1px solid var(--line);}
+  .breadth-bar .adv{background:var(--buy-dim);}
+  .breadth-bar .dec{background:var(--sell-dim);}
+  .breadth-labels{display:flex; justify-content:space-between; margin-top:8px; font-size:12px; font-family:'IBM Plex Mono',monospace;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th{text-align:left; color:var(--text-faint); font-weight:600; font-size:10.5px; text-transform:uppercase;
+    letter-spacing:.5px; padding:6px 8px; border-bottom:1px solid var(--line);}
+  td{padding:7px 8px; border-bottom:1px solid #1A2030; font-family:'IBM Plex Mono',monospace;}
+  tr:last-child td{border-bottom:none;}
+  .sym{font-family:'IBM Plex Sans',sans-serif; font-weight:500;}
+
+  .sector-row{display:flex; align-items:center; gap:10px; margin-bottom:9px; font-size:12.5px;}
+  .sector-row .name{width:110px; color:var(--text-dim); flex-shrink:0;}
+  .sector-row .bar-track{flex:1; height:8px; background:#1A2030; border-radius:4px; overflow:hidden;}
+  .sector-row .bar-fill{height:100%; border-radius:4px;}
+  .sector-row .val{width:48px; text-align:right; font-family:'IBM Plex Mono',monospace;}
+
+  /* Scanner */
+  .scanner-top{display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap;}
+  .watchlist-box{flex:1; min-width:260px;}
+  .watchlist-box input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:9px 12px; border-radius:8px; font-family:'IBM Plex Mono',monospace; font-size:13px;
+  }
+  .watchlist-tags{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;}
+  .tag{background:var(--panel-2); border:1px solid var(--line); padding:4px 10px; border-radius:20px; font-size:12px; font-family:'IBM Plex Mono',monospace;}
+  .tag.live{border-color:var(--buy); color:var(--buy);}
+  .tag.sim{border-color:var(--amber); color:var(--amber);}
+  .btn{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:9px 16px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit;
+  }
+  .btn.primary{background:var(--buy-dim); border-color:var(--buy); color:#DFFFF3;}
+  .btn:hover{filter:brightness(1.15);}
+  .scan-status{font-size:11.5px; color:var(--text-faint); margin-top:8px; font-family:'IBM Plex Mono',monospace;}
+
+  .signal-strip{display:flex; gap:10px; margin:16px 0; flex-wrap:wrap;}
+  .signal-pill{
+    padding:5px 12px; border-radius:20px; font-size:11px; font-weight:600; font-family:'IBM Plex Mono',monospace;
+    border:1px solid var(--line); color:var(--text-dim);
+  }
+  .signal-pill.pass{border-color:var(--buy-dim); color:var(--buy);}
+  .signal-pill.fail{border-color:var(--sell-dim); color:var(--sell);}
+
+  .cards-row{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-top:6px;}
+  .trade-card{
+    border-radius:var(--radius); border:1px solid var(--line); background:var(--panel-2);
+    padding:16px; position:relative; overflow:hidden;
+  }
+  .trade-card.buy{border-color:var(--buy-dim); box-shadow:0 0 0 1px rgba(24,201,143,.15) inset;}
+  .trade-card.sell{border-color:var(--sell-dim); box-shadow:0 0 0 1px rgba(234,57,67,.15) inset;}
+  .trade-card.none{opacity:.55;}
+  .tc-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .tc-sym{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px;}
+  .tc-badge{font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; letter-spacing:.3px;}
+  .tc-badge.buy{background:rgba(24,201,143,.14); color:var(--buy);}
+  .tc-badge.sell{background:rgba(234,57,67,.14); color:var(--sell);}
+  .tc-badge.none{background:rgba(91,98,112,.18); color:var(--neutral);}
+  .tc-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; margin-bottom:10px;}
+  .tc-grid .l{color:var(--text-faint); font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; font-family:'IBM Plex Sans',sans-serif; margin-bottom:2px;}
+  .tc-conf{display:flex; align-items:center; gap:8px; margin-top:6px;}
+  .tc-conf-track{flex:1; height:6px; background:#0E1119; border-radius:4px; overflow:hidden;}
+  .tc-conf-fill{height:100%; background:linear-gradient(90deg,var(--amber-dim),var(--amber));}
+  .tc-conf .num{font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:600;}
+
+  /* Journal */
+  .journal-form{display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
+  .journal-form .full{grid-column:1/-1;}
+  .journal-form label{display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-faint); margin-bottom:5px;}
+  .journal-form input,.journal-form select,.journal-form textarea{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    padding:8px 10px; border-radius:7px; font-family:'IBM Plex Mono',monospace; font-size:12.5px;
+  }
+  .journal-form textarea{font-family:'IBM Plex Sans',sans-serif; resize:vertical; min-height:44px;}
+  @media(max-width:900px){.journal-form{grid-template-columns:repeat(2,1fr);}}
+
+  .stat-row{display:flex; gap:14px; margin-bottom:16px; flex-wrap:wrap;}
+  .stat{background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:12px 18px; min-width:120px;}
+  .stat .n{font-size:20px; font-weight:700; font-family:'IBM Plex Mono',monospace;}
+  .stat .l{font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.4px; margin-top:2px;}
+
+  .empty{color:var(--text-faint); font-size:13px; padding:20px 0; text-align:center;}
+
+  /* Checklist */
+  .checklist-item{
+    display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid #1A2030;
+  }
+  .checklist-item:last-child{border-bottom:none;}
+  .checklist-item input[type=checkbox]{
+    width:17px; height:17px; accent-color:var(--buy); cursor:pointer;
+  }
+  .checklist-item .name{flex:1; font-size:13.5px;}
+  .checklist-item .crit{font-size:10px; color:var(--sell); border:1px solid var(--sell-dim); padding:1px 7px; border-radius:10px; font-weight:600; letter-spacing:.3px;}
+  .checklist-banner{
+    margin-top:16px; padding:14px 18px; border-radius:9px; font-weight:700; text-align:center; font-size:14px;
+    letter-spacing:.4px; font-family:'Space Grotesk',sans-serif;
+  }
+  .checklist-banner.ok{background:rgba(24,201,143,.1); border:1px solid var(--buy-dim); color:var(--buy);}
+  .checklist-banner.no{background:rgba(234,57,67,.1); border:1px solid var(--sell-dim); color:var(--sell);}
+
+  .note{font-size:11.5px; color:var(--text-faint); line-height:1.5; margin-top:14px; border-top:1px dashed var(--line); padding-top:12px;}
+</style>
+</head>
+<body>
+
+<div class="ticker-wrap"><div class="ticker-track" id="tickerTrack"></div></div>
+
+<header>
+  <div class="brand">
+    <div class="dot"></div>
+    <div>
+      <h1 class="display">Phase 1 — Trade Terminal</h1>
+      <small>Rules-based scanner · free-data architecture</small>
+    </div>
+  </div>
+  <span class="tag" id="data-status" style="margin-left:2px;">checking data source…</span>
+  <nav class="tabs" id="tabs">
+    <button data-view="dashboard" class="active">Dashboard</button>
+    <button data-view="scanner">Scanner</button>
+    <button data-view="journal">Journal</button>
+    <button data-view="checklist">Checklist</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section class="view active" id="view-dashboard">
+    <div class="grid grid-4" style="margin-bottom:14px;">
+      <div class="card idx-card">
+        <h3>Nifty 50</h3>
+        <div class="price mono" id="nifty-price">—</div>
+        <div class="chg" id="nifty-chg">—</div>
+        <svg id="nifty-spark" width="100%" height="40" viewBox="0 0 220 40" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="card idx-card">
+        <h3>Bank Nifty</h3>
+        <div class="price mono" id="bn-price">—</div>
+        <div class="chg" id="bn-chg">—</div>
+        <svg id="bn-spark" width="100%" height="40" viewBox="0 0 220 40" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="card idx-card">
+        <h3>India VIX</h3>
+        <div class="price mono" id="vix-price">—</div>
+        <div class="chg" id="vix-chg">—</div>
+        <svg id="vix-spark" width="100%" height="40" viewBox="0 0 220 40" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="card">
+        <h3>Market Breadth</h3>
+        <div class="breadth-bar"><div class="adv" id="breadth-adv" style="width:55%"></div><div class="dec" id="breadth-dec" style="width:45%"></div></div>
+        <div class="breadth-labels">
+          <span class="up" id="adv-count">— Advances</span>
+          <span class="down" id="dec-count">Declines —</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-3">
+      <div class="card">
+        <h3>Sector Strength</h3>
+        <div id="sector-list"></div>
+      </div>
+      <div class="card">
+        <h3>Top Gainers</h3>
+        <table><thead><tr><th>Sym</th><th>LTP</th><th>Chg%</th></tr></thead><tbody id="gainers-body"></tbody></table>
+      </div>
+      <div class="card">
+        <h3>Top Losers</h3>
+        <table><thead><tr><th>Sym</th><th>LTP</th><th>Chg%</th></tr></thead><tbody id="losers-body"></tbody></table>
+      </div>
+    </div>
+
+    <div class="note">Nifty, Bank Nifty, VIX, and the gainers/losers table pull live from Yahoo Finance when the backend (app.py) is running — check the badge in the top right. Market breadth and sector strength stay simulated for now since they need the full NSE universe, not just your watchlist; that's a good Phase 2 addition once Bhavcopy parsing is wired in.</div>
+  </section>
+
+  <!-- ============ SCANNER ============ -->
+  <section class="view" id="view-scanner">
+    <div class="card">
+      <div class="scanner-top">
+        <div class="watchlist-box">
+          <h3 style="margin-bottom:8px;">Watchlist</h3>
+          <input id="watchlist-input" type="text" value="RELIANCE, HDFCBANK, TCS, INFY, ICICIBANK, SBIN, TATAMOTORS, AXISBANK" />
+          <div class="watchlist-tags" id="watchlist-tags"></div>
+        </div>
+        <div>
+          <h3 style="margin-bottom:8px;">Scan Control</h3>
+          <button class="btn primary" id="scan-now-btn">Scan now</button>
+          <div class="scan-status" id="scan-status">Auto-scan every 60s · idle</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h3>Rule Checklist (last scan, aggregate)</h3>
+      <div class="signal-strip" id="rule-strip"></div>
+      <div class="cards-row" id="trade-cards"></div>
+    </div>
+
+    <div class="note">Each condition — VWAP, EMA cross, volume spike, RSI band, opening-range breakout, ATR stop — is evaluated per symbol against real minute-by-minute bars from Yahoo Finance when the backend is running, or simulated bars when it's not. A symbol only prints BUY or SELL when every condition agrees; otherwise it's NO TRADE.</div>
+  </section>
+
+  <!-- ============ JOURNAL ============ -->
+  <section class="view" id="view-journal">
+    <div class="stat-row" id="journal-stats"></div>
+
+    <div class="card">
+      <h3>Log a trade</h3>
+      <div class="journal-form">
+        <div><label>Stock</label><input id="j-stock" placeholder="RELIANCE"></div>
+        <div><label>Entry</label><input id="j-entry" type="number" step="0.05" placeholder="1584.25"></div>
+        <div><label>Exit</label><input id="j-exit" type="number" step="0.05" placeholder="1594.80"></div>
+        <div><label>Qty</label><input id="j-qty" type="number" placeholder="10"></div>
+        <div><label>Emotion</label>
+          <select id="j-emotion">
+            <option>Calm</option><option>Confident</option><option>FOMO</option>
+            <option>Fearful</option><option>Impatient</option><option>Revenge</option>
+          </select>
+        </div>
+        <div class="full"><label>Mistakes / notes</label><textarea id="j-mistakes" placeholder="e.g. entered before candle close, sized too big..."></textarea></div>
+        <div class="full"><label>Screenshot URL (optional)</label><input id="j-screenshot" placeholder="https://..."></div>
+        <div class="full" style="text-align:right;"><button class="btn primary" id="j-add-btn">Add entry</button></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h3>Trade Log</h3>
+      <table>
+        <thead><tr><th>Stock</th><th>Entry</th><th>Exit</th><th>Qty</th><th>P/L</th><th>Emotion</th><th>Notes</th></tr></thead>
+        <tbody id="journal-body"></tbody>
+      </table>
+      <div class="empty" id="journal-empty">No trades logged yet.</div>
+    </div>
+  </section>
+
+  <!-- ============ CHECKLIST ============ -->
+  <section class="view" id="view-checklist">
+    <div class="card">
+      <h3>Daily Pre-Trade Checklist</h3>
+      <div id="checklist-items"></div>
+      <div class="checklist-banner no" id="checklist-banner">NO TRADE — complete all critical checks</div>
+    </div>
+    <div class="note">Items marked <span style="color:var(--sell); font-weight:600;">critical</span> must all be checked before any BUY/SELL signal in the Scanner tab is treated as actionable. This gate is a discipline layer on top of the rules engine, not a replacement for it.</div>
+  </section>
+
+</main>
+
+<script>
+/* ============================================================
+   BACKEND CONNECTION (Phase 1.5)
+   If the local Python proxy (app.py) is running, we use real
+   Yahoo Finance data through it. If not, everything falls back
+   to the simulation engine below automatically.
+   ============================================================ */
+// ⬇️ After deploying the backend on Render, paste your live URL here
+// (it looks like https://your-app-name.onrender.com — no slash at the end)
+const BACKEND_URL = 'https://PASTE-YOUR-RENDER-URL-HERE.onrender.com';
+let BACKEND_LIVE = false;
+
+async function checkBackend(){
+  try{
+    const res = await fetch(BACKEND_URL + '/api/health', {cache:'no-store'});
+    if(!res.ok) throw new Error('bad status');
+    BACKEND_LIVE = true;
+  }catch(e){
+    BACKEND_LIVE = false;
+  }
+  const badge = document.getElementById('data-status');
+  if(BACKEND_LIVE){
+    badge.textContent = '● LIVE DATA (Yahoo Finance)';
+    badge.className = 'tag live';
+  } else {
+    badge.textContent = '● SIMULATED DATA — start the backend for live prices';
+    badge.className = 'tag sim';
+  }
+  return BACKEND_LIVE;
+}
+
+async function fetchBackendIndices(){
+  try{
+    const res = await fetch(BACKEND_URL + '/api/indices', {cache:'no-store'});
+    if(!res.ok) throw new Error('bad status');
+    return await res.json();
+  }catch(e){ return null; }
+}
+
+async function fetchBackendQuote(symbol){
+  try{
+    const res = await fetch(BACKEND_URL + '/api/quote/' + encodeURIComponent(symbol), {cache:'no-store'});
+    if(!res.ok) throw new Error('bad status');
+    const data = await res.json();
+    if(data.error) return null;
+    return data;
+  }catch(e){ return null; }
+}
+
+async function fetchBackendWatchlist(symbols){
+  try{
+    const res = await fetch(BACKEND_URL + '/api/watchlist?symbols=' + encodeURIComponent(symbols.join(',')), {cache:'no-store'});
+    if(!res.ok) throw new Error('bad status');
+    return await res.json();
+  }catch(e){ return null; }
+}
+
+/* ============================================================
+   SIMULATED MARKET DATA ENGINE (fallback)
+   Stand-in for Yahoo Finance / NSE Bhavcopy / India VIX feeds.
+   Generates realistic random-walk OHLCV so every UI element
+   and the rules engine are fully exercised end-to-end.
+   ============================================================ */
+function seededRandom(seed){
+  let s = seed;
+  return function(){ s = (s*9301+49297)%233280; return s/233280; };
+}
+function randomWalk(start, steps, vol, rnd){
+  const arr=[start]; let v=start;
+  for(let i=1;i<steps;i++){ v = Math.max(1, v + (rnd()-0.5)*vol); arr.push(v); }
+  return arr;
+}
+function pct(a,b){ return ((a-b)/b*100); }
+
+const WATCH_DEFAULT = ["RELIANCE","HDFCBANK","TCS","INFY","ICICIBANK","SBIN","TATAMOTORS","AXISBANK","LT","BHARTIARTL","MARUTI","ITC"];
+const rnd = seededRandom(42);
+
+// index state
+const state = {
+  nifty:{ price: 24812.35, prev: 24735.10, series: randomWalk(24735.10, 40, 30, rnd) },
+  bn:{ price: 51820.60, prev: 51590.25, series: randomWalk(51590.25, 40, 70, rnd) },
+  vix:{ price: 13.42, prev: 13.9, series: randomWalk(13.9, 40, 0.15, rnd) },
+};
+
+function tickIndex(obj, vol){
+  const rndv = rnd()-0.5;
+  obj.price = Math.max(1, obj.price + rndv*vol);
+  obj.series.push(obj.price);
+  if(obj.series.length>40) obj.series.shift();
+}
+
+function fmt(n, d=2){ return n.toLocaleString('en-IN', {minimumFractionDigits:d, maximumFractionDigits:d}); }
+
+function drawSpark(svgId, series, isGood){
+  const svg = document.getElementById(svgId);
+  const w=220,h=40; const min=Math.min(...series), max=Math.max(...series);
+  const range = (max-min)||1;
+  const pts = series.map((v,i)=>{
+    const x = (i/(series.length-1))*w;
+    const y = h - ((v-min)/range)*h;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const color = isGood ? '#18C98F' : '#EA3943';
+  svg.innerHTML = `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+}
+
+function renderIndices(){
+  const n = state.nifty, b = state.bn, v = state.vix;
+  document.getElementById('nifty-price').textContent = fmt(n.price);
+  document.getElementById('bn-price').textContent = fmt(b.price);
+  document.getElementById('vix-price').textContent = fmt(v.price);
+
+  const nchg = pct(n.price, n.prev), bchg = pct(b.price, b.prev), vchg = pct(v.price, v.prev);
+  setChg('nifty-chg', n.price-n.prev, nchg);
+  setChg('bn-chg', b.price-b.prev, bchg);
+  setChg('vix-chg', v.price-v.prev, vchg, true);
+
+  drawSpark('nifty-spark', n.series, nchg>=0);
+  drawSpark('bn-spark', b.series, bchg>=0);
+  drawSpark('vix-spark', v.series, vchg<0); // falling VIX = "good" (green)
+}
+function setChg(id, abs, pctv, inverse=false){
+  const el = document.getElementById(id);
+  const good = inverse ? pctv<0 : pctv>=0;
+  el.className = 'chg ' + (good?'up':'down');
+  el.textContent = `${abs>=0?'+':''}${fmt(abs)}  (${pctv>=0?'+':''}${fmt(pctv)}%)`;
+}
+
+// Breadth + sectors + gainers/losers
+const SECTORS = ["Bank","IT","Auto","Pharma","FMCG","Energy","Metal","Realty"];
+async function renderBreadthAndMovers(){
+  const adv = 12 + Math.floor(rnd()*30);
+  const dec = 50 - adv;
+  document.getElementById('breadth-adv').style.width = (adv/50*100)+'%';
+  document.getElementById('breadth-dec').style.width = (dec/50*100)+'%';
+  document.getElementById('adv-count').textContent = adv+' Advances';
+  document.getElementById('dec-count').textContent = 'Declines '+dec;
+
+  const sectorHtml = SECTORS.map(s=>{
+    const val = (rnd()*4-2);
+    const good = val>=0;
+    const width = Math.min(100, Math.abs(val)/2*100);
+    return `<div class="sector-row">
+      <div class="name">${s}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${width}%; background:${good?'#18C98F':'#EA3943'};"></div></div>
+      <div class="val ${good?'up':'down'}">${val>=0?'+':''}${val.toFixed(2)}%</div>
+    </div>`;
+  }).join('');
+  document.getElementById('sector-list').innerHTML = sectorHtml;
+
+  let moves = null;
+  if(BACKEND_LIVE){
+    const live = await fetchBackendWatchlist(WATCH_DEFAULT);
+    if(live){
+      moves = live.filter(m=>!m.error).map(m=>({sym:m.symbol, chg:m.chg_pct, price:m.price}));
+    }
+  }
+  if(!moves){
+    moves = WATCH_DEFAULT.map(sym=>{
+      const chg = (rnd()*6-3);
+      const price = 500 + rnd()*2500;
+      return {sym, chg, price};
+    });
+  }
+  moves.sort((a,b)=>b.chg-a.chg);
+  const gainers = moves.slice(0,5);
+  const losers = moves.slice(-5).reverse();
+  document.getElementById('gainers-body').innerHTML = gainers.map(m=>
+    `<tr><td class="sym">${m.sym}</td><td>${fmt(m.price)}</td><td class="up">+${m.chg.toFixed(2)}%</td></tr>`).join('');
+  document.getElementById('losers-body').innerHTML = losers.map(m=>
+    `<tr><td class="sym">${m.sym}</td><td>${fmt(m.price)}</td><td class="down">${m.chg.toFixed(2)}%</td></tr>`).join('');
+}
+
+// Ticker tape
+function renderTicker(){
+  const items = [
+    {l:'NIFTY 50', v:state.nifty.price, p:pct(state.nifty.price,state.nifty.prev)},
+    {l:'BANK NIFTY', v:state.bn.price, p:pct(state.bn.price,state.bn.prev)},
+    {l:'INDIA VIX', v:state.vix.price, p:pct(state.vix.price,state.vix.prev)},
+    ...WATCH_DEFAULT.slice(0,8).map(s=>({l:s, v:500+rnd()*2500, p:(rnd()*4-2)}))
+  ];
+  const html = items.map(it=>
+    `<span class="ticker-item"><span class="lbl">${it.l}</span> <span class="mono">${fmt(it.v)}</span> <span class="${it.p>=0?'up':'down'}">${it.p>=0?'+':''}${it.p.toFixed(2)}%</span></span>`
+  ).join('');
+  document.getElementById('tickerTrack').innerHTML = html + html; // duplicate for seamless loop
+}
+
+/* ============================================================
+   TRADE SCANNER — rules engine
+   ============================================================ */
+function genIntraday(sym){
+  const base = 300 + (sym.charCodeAt(0)*13 % 2200);
+  const bars = 60; // simulated 1-min bars since open
+  const series = randomWalk(base, bars, base*0.004, rnd);
+  const vols = series.map(()=> 50000 + rnd()*400000);
+  const openRange = series.slice(0,15); // first 15 bars = opening range
+  return {
+    sym, series, vols,
+    orHigh: Math.max(...openRange),
+    orLow: Math.min(...openRange),
+    ltp: series[series.length-1],
+    vwap: series.reduce((a,b)=>a+b,0)/series.length * (0.995+rnd()*0.01),
+  };
+}
+function ema(series, period){
+  const k = 2/(period+1);
+  let emaVal = series[0];
+  const out=[emaVal];
+  for(let i=1;i<series.length;i++){ emaVal = series[i]*k + emaVal*(1-k); out.push(emaVal); }
+  return out;
+}
+function rsi(series, period=14){
+  let gains=0, losses=0;
+  for(let i=series.length-period;i<series.length;i++){
+    const d = series[i]-series[i-1];
+    if(d>=0) gains+=d; else losses-=d;
+  }
+  const avgG=gains/period, avgL=losses/period || 0.0001;
+  const rs = avgG/avgL;
+  return 100 - (100/(1+rs));
+}
+function atr(series, period=14){
+  let sum=0;
+  for(let i=series.length-period;i<series.length;i++){
+    sum += Math.abs(series[i]-series[i-1]);
+  }
+  return sum/period;
+}
+
+async function evaluateSymbol(sym){
+  let d;
+  if(BACKEND_LIVE){
+    const live = await fetchBackendQuote(sym);
+    if(live && live.bars && live.bars.length >= 20){
+      const series = live.bars.map(b=>b.c);
+      const vols = live.bars.map(b=>b.v);
+      const openRange = series.slice(0, Math.min(15, series.length));
+      d = {
+        sym, series, vols,
+        orHigh: Math.max(...openRange),
+        orLow: Math.min(...openRange),
+        ltp: series[series.length-1],
+        vwap: series.reduce((a,b)=>a+b,0)/series.length,
+      };
+    }
+  }
+  if(!d) d = genIntraday(sym); // fallback to simulation if backend is off or data too thin
+
+  const ema9 = ema(d.series,9), ema20 = ema(d.series,20);
+  const lastEma9 = ema9[ema9.length-1], lastEma20 = ema20[ema20.length-1];
+  const r = rsi(d.series);
+  const a = atr(d.series);
+  const avgVol = d.vols.slice(0,-1).reduce((x,y)=>x+y,0)/(d.vols.length-1);
+  const lastVol = d.vols[d.vols.length-1];
+
+  const rules = {
+    aboveVWAP: d.ltp > d.vwap,
+    emaBull: lastEma9 > lastEma20,
+    volSpike: lastVol > avgVol*1.4,
+    rsiBand: r>=55 && r<=70,
+    orBreak: d.ltp > d.orHigh,
+  };
+  const passCount = Object.values(rules).filter(Boolean).length;
+  const allPass = Object.values(rules).every(Boolean);
+
+  // bearish mirror for SELL
+  const bearRules = {
+    belowVWAP: d.ltp < d.vwap,
+    emaBear: lastEma9 < lastEma20,
+    volSpike: rules.volSpike,
+    rsiBand: r>=30 && r<=45,
+    orBreak: d.ltp < d.orLow,
+  };
+  const allBear = Object.values(bearRules).every(Boolean);
+
+  let signal = 'NONE';
+  if(allPass) signal='BUY';
+  else if(allBear) signal='SELL';
+
+  const sl = signal==='BUY' ? d.ltp - a*1.2 : signal==='SELL' ? d.ltp + a*1.2 : d.ltp - a*1.2;
+  const risk = Math.abs(d.ltp - sl);
+  const t1 = signal==='SELL' ? d.ltp - risk*1.5 : d.ltp + risk*1.5;
+  const t2 = signal==='SELL' ? d.ltp - risk*2.5 : d.ltp + risk*2.5;
+  const rr = (Math.abs(t1-d.ltp)/risk).toFixed(1);
+  const confidence = signal==='NONE' ? Math.round(passCount/5*55) : Math.round(60 + passCount*8 + rnd()*10);
+
+  return {sym, signal, ltp:d.ltp, sl, t1, t2, rr:`1:${rr}`, confidence:Math.min(97,confidence), rules, rsi:r};
+}
+
+let currentWatchlist = WATCH_DEFAULT.slice(0,8);
+function renderWatchlistTags(){
+  document.getElementById('watchlist-tags').innerHTML = currentWatchlist.map(s=>`<span class="tag">${s}</span>`).join('');
+}
+
+function runScan(){
+  document.getElementById('scan-status').textContent = 'Scanning ' + currentWatchlist.length + ' symbols…';
+  Promise.all(currentWatchlist.map(evaluateSymbol)).then(results=>{
+    renderScanResults(results);
+    const now = new Date();
+    document.getElementById('scan-status').textContent = `Auto-scan every 60s · last run ${now.toLocaleTimeString('en-IN',{hour12:false})} · ${BACKEND_LIVE?'live data':'simulated data'}`;
+  });
+}
+
+function renderScanResults(results){
+  // aggregate rule strip = show pass rate across watchlist for each condition
+  const ruleNames = [
+    ['aboveVWAP','Price > VWAP'],['emaBull','9 EMA > 20 EMA'],['volSpike','Volume spike'],
+    ['rsiBand','RSI 55–70'],['orBreak','ORB breakout']
+  ];
+  const strip = ruleNames.map(([key,label])=>{
+    const passCount = results.filter(r=>r.rules[key]).length;
+    const pass = passCount >= Math.ceil(results.length/2);
+    return `<span class="signal-pill ${pass?'pass':'fail'}">${label} · ${passCount}/${results.length}</span>`;
+  }).join('');
+  document.getElementById('rule-strip').innerHTML = strip;
+
+  const sorted = [...results].sort((a,b)=> (b.signal!=='NONE') - (a.signal!=='NONE') || b.confidence-a.confidence);
+  document.getElementById('trade-cards').innerHTML = sorted.map(r=>{
+    const cls = r.signal==='BUY'?'buy':r.signal==='SELL'?'sell':'none';
+    const badge = r.signal==='BUY'?'🟢 BUY':r.signal==='SELL'?'🔴 SELL':'⚪ NO TRADE';
+    return `<div class="trade-card ${cls}">
+      <div class="tc-head">
+        <div class="tc-sym">${r.sym}</div>
+        <div class="tc-badge ${cls}">${badge}</div>
+      </div>
+      <div class="tc-grid">
+        <div><div class="l">Entry</div>${fmt(r.ltp)}</div>
+        <div><div class="l">Stop-loss</div>${fmt(r.sl)}</div>
+        <div><div class="l">Target 1</div>${fmt(r.t1)}</div>
+        <div><div class="l">Target 2</div>${fmt(r.t2)}</div>
+        <div><div class="l">Risk / Reward</div>${r.rr}</div>
+        <div><div class="l">RSI</div>${r.rsi.toFixed(1)}</div>
+      </div>
+      <div class="tc-conf">
+        <div class="tc-conf-track"><div class="tc-conf-fill" style="width:${r.confidence}%;"></div></div>
+        <div class="num">${r.confidence}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('watchlist-input').addEventListener('change', (e)=>{
+  currentWatchlist = e.target.value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
+  renderWatchlistTags();
+  runScan();
+});
+document.getElementById('scan-now-btn').addEventListener('click', runScan);
+
+/* ============================================================
+   JOURNAL
+   ============================================================ */
+let journal = [];
+function renderJournal(){
+  const body = document.getElementById('journal-body');
+  const empty = document.getElementById('journal-empty');
+  if(journal.length===0){ body.innerHTML=''; empty.style.display='block'; }
+  else{
+    empty.style.display='none';
+    body.innerHTML = journal.map(t=>{
+      const pl = (t.exit-t.entry)*t.qty;
+      return `<tr>
+        <td class="sym">${t.stock}</td><td>${fmt(t.entry)}</td><td>${fmt(t.exit)}</td><td>${t.qty}</td>
+        <td class="${pl>=0?'up':'down'}">${pl>=0?'+':''}${fmt(pl)}</td>
+        <td>${t.emotion}</td><td style="font-family:'IBM Plex Sans',sans-serif; white-space:normal; max-width:260px;">${t.mistakes||'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+  // stats
+  const wins = journal.filter(t=>(t.exit-t.entry)>0);
+  const losses = journal.filter(t=>(t.exit-t.entry)<=0);
+  const winRate = journal.length ? (wins.length/journal.length*100).toFixed(1) : '0.0';
+  const grossProfit = wins.reduce((s,t)=>s+(t.exit-t.entry)*t.qty,0);
+  const grossLoss = Math.abs(losses.reduce((s,t)=>s+(t.exit-t.entry)*t.qty,0));
+  const pf = grossLoss>0 ? (grossProfit/grossLoss).toFixed(2) : (grossProfit>0?'∞':'0.00');
+  const netPL = journal.reduce((s,t)=>s+(t.exit-t.entry)*t.qty,0);
+  document.getElementById('journal-stats').innerHTML = `
+    <div class="stat"><div class="n">${journal.length}</div><div class="l">Trades</div></div>
+    <div class="stat"><div class="n ${winRate>=50?'up':'down'}">${winRate}%</div><div class="l">Win Rate</div></div>
+    <div class="stat"><div class="n">${pf}</div><div class="l">Profit Factor</div></div>
+    <div class="stat"><div class="n ${netPL>=0?'up':'down'}">${netPL>=0?'+':''}${fmt(netPL)}</div><div class="l">Net P/L</div></div>
+  `;
+}
+document.getElementById('j-add-btn').addEventListener('click', ()=>{
+  const stock = document.getElementById('j-stock').value.trim().toUpperCase();
+  const entry = parseFloat(document.getElementById('j-entry').value);
+  const exit = parseFloat(document.getElementById('j-exit').value);
+  const qty = parseInt(document.getElementById('j-qty').value) || 1;
+  const emotion = document.getElementById('j-emotion').value;
+  const mistakes = document.getElementById('j-mistakes').value.trim();
+  const screenshot = document.getElementById('j-screenshot').value.trim();
+  if(!stock || isNaN(entry) || isNaN(exit)){
+    alert('Please fill in Stock, Entry and Exit at minimum.');
+    return;
+  }
+  journal.unshift({stock, entry, exit, qty, emotion, mistakes, screenshot});
+  ['j-stock','j-entry','j-exit','j-qty','j-mistakes','j-screenshot'].forEach(id=>document.getElementById(id).value='');
+  renderJournal();
+});
+
+/* ============================================================
+   CHECKLIST
+   ============================================================ */
+const CHECKLIST_ITEMS = [
+  {id:'global', label:'Global market trend confirmed (SGX Nifty / US markets / Asia)', critical:true},
+  {id:'vix', label:'India VIX within acceptable range (not spiking)', critical:true},
+  {id:'news', label:'No major news events / earnings in next 30 min', critical:true},
+  {id:'orange', label:'Opening range established (first 15 min)', critical:true},
+  {id:'vwap', label:'Price relative to VWAP confirmed', critical:true},
+  {id:'ema', label:'EMA trend (9 > 20 or 9 < 20) confirmed', critical:true},
+  {id:'volume', label:'Volume above average', critical:false},
+  {id:'rsi', label:'RSI in valid band (not overbought/oversold extremes)', critical:false},
+  {id:'rr', label:'Risk/Reward at least 1:2', critical:true},
+  {id:'maxloss', label:'Max daily loss limit not yet hit', critical:true},
+];
+const checklistState = {};
+function renderChecklist(){
+  document.getElementById('checklist-items').innerHTML = CHECKLIST_ITEMS.map(item=>`
+    <div class="checklist-item">
+      <input type="checkbox" id="chk-${item.id}" ${checklistState[item.id]?'checked':''}>
+      <div class="name">${item.label}</div>
+      ${item.critical ? '<span class="crit">CRITICAL</span>' : ''}
+    </div>`).join('');
+  CHECKLIST_ITEMS.forEach(item=>{
+    document.getElementById(`chk-${item.id}`).addEventListener('change', e=>{
+      checklistState[item.id] = e.target.checked;
+      updateChecklistBanner();
+    });
+  });
+  updateChecklistBanner();
+}
+function updateChecklistBanner(){
+  const criticalItems = CHECKLIST_ITEMS.filter(i=>i.critical);
+  const allCriticalPass = criticalItems.every(i=>checklistState[i.id]);
+  const banner = document.getElementById('checklist-banner');
+  if(allCriticalPass){
+    banner.className='checklist-banner ok';
+    banner.textContent='✅ ALL CRITICAL CHECKS PASSED — trading permitted';
+  } else {
+    banner.className='checklist-banner no';
+    const remaining = criticalItems.filter(i=>!checklistState[i.id]).length;
+    banner.textContent=`⚪ NO TRADE — ${remaining} critical check${remaining===1?'':'s'} remaining`;
+  }
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+document.getElementById('tabs').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-view]');
+  if(!btn) return;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+btn.dataset.view).classList.add('active');
+});
+
+/* ============================================================
+   INIT + LOOPS
+   ============================================================ */
+async function tickAll(){
+  if(BACKEND_LIVE){
+    const live = await fetchBackendIndices();
+    if(live){
+      applyLiveIndex(state.nifty, live.nifty);
+      applyLiveIndex(state.bn, live.banknifty);
+      applyLiveIndex(state.vix, live.vix);
+      renderIndices();
+      return;
+    }
+  }
+  tickIndex(state.nifty, 22);
+  tickIndex(state.bn, 55);
+  tickIndex(state.vix, 0.12);
+  renderIndices();
+}
+function applyLiveIndex(obj, liveData){
+  if(!liveData || liveData.error || liveData.price==null) return;
+  obj.prev = liveData.prev_close ?? obj.prev;
+  obj.price = liveData.price;
+  obj.series.push(obj.price);
+  if(obj.series.length>40) obj.series.shift();
+}
+(async function init(){
+  await checkBackend();
+  renderIndices();
+  await renderBreadthAndMovers();
+  renderTicker();
+  renderWatchlistTags();
+  runScan();
+  renderJournal();
+  renderChecklist();
+
+  setInterval(tickAll, 2500);
+  setInterval(renderBreadthAndMovers, 15000);
+  setInterval(renderTicker, 20000);
+  setInterval(runScan, 60000);
+  setInterval(checkBackend, 15000); // detect if backend starts/stops mid-session
+})();
+</script>
+</body>
+</html>
